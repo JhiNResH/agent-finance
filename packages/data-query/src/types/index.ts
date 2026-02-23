@@ -96,13 +96,16 @@ export interface UniswapPoolFormatted {
 // ---- Morpho Blue Types ------------------------------------
 
 export interface MorphoMarketState {
-  liquidityAssets: string;
   supplyAssets: string;
+  supplyAssetsUsd?: number;
   borrowAssets: string;
+  borrowAssetsUsd?: number;
+  liquidityAssetsUsd?: number;
   utilization: number;
   supplyApy: number;
   borrowApy: number;
-  totalValueLockedUsd: number;
+  netSupplyApy?: number;
+  netBorrowApy?: number;
 }
 
 export interface MorphoAsset {
@@ -151,9 +154,9 @@ export interface MorphoMarketRates {
 
 export interface MorphoVaultState {
   totalAssets: string;
-  totalAssetsUsd: number;
-  apy: number;
-  netApy: number;
+  totalAssetsUsd?: number;
+  apy?: number;
+  netApy?: number;
 }
 
 export interface MorphoVault {
@@ -162,7 +165,6 @@ export interface MorphoVault {
   symbol: string;
   asset: MorphoAsset;
   state: MorphoVaultState;
-  creationTimestamp: number;
 }
 
 export interface MorphoVaultFormatted {
