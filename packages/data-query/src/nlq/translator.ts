@@ -17,6 +17,14 @@ import {
   getUniswapTVL,
   getUniswapTVLAllChains,
 } from "../protocols/uniswap.js";
+import {
+  getMorphoTVL,
+  getMorphoTVLAllChains,
+  getMorphoMarketRates,
+  getMorphoTopVaults,
+  getMorphoTopVaultsAllChains,
+  MORPHO_SUPPORTED_CHAINS,
+} from "../protocols/morpho.js";
 
 // ---- Claude Client ----------------------------------------
 
@@ -40,12 +48,14 @@ const SYSTEM_PROMPT = `You are a DeFi data query parser. Parse natural language 
 Supported protocols:
 - aave-v3: Lending protocol. Chains: base, arbitrum, optimism
 - uniswap-v3: DEX/AMM. Chains: base, arbitrum
+- morpho-blue: Isolated lending markets + curated vaults. Chains: base, ethereum
 
 Supported actions:
 - tvl: Total Value Locked
 - rates: Lending/supply/borrow rates
 - pools: Top liquidity pools  
 - volume: Trading volume
+- vaults: Top vaults by TVL (Morpho)
 - unknown: Cannot determine
 
 Chain aliases:
@@ -57,12 +67,13 @@ Chain aliases:
 Protocol aliases:
 - "aave", "aave v3", "aave3" → aave-v3
 - "uniswap", "uni", "uniswap v3", "univ3" → uniswap-v3
+- "morpho", "morpho blue", "morpho-blue" → morpho-blue
 
 Respond ONLY with valid JSON in this exact format:
 {
-  "protocol": "aave-v3" | "uniswap-v3" | null,
+  "protocol": "aave-v3" | "uniswap-v3" | "morpho-blue" | null,
   "chain": "base" | "arbitrum" | "optimism" | "ethereum" | null,
-  "action": "tvl" | "rates" | "pools" | "volume" | "unknown",
+  "action": "tvl" | "rates" | "pools" | "volume" | "vaults" | "unknown",
   "token": "USDC" | null,
   "limit": 10,
   "rawIntent": "brief description of what was asked"
@@ -72,7 +83,11 @@ Examples:
 - "Aave TVL on Base" → {"protocol":"aave-v3","chain":"base","action":"tvl","token":null,"limit":10,"rawIntent":"Aave V3 TVL on Base chain"}
 - "top uniswap pools on arbitrum" → {"protocol":"uniswap-v3","chain":"arbitrum","action":"pools","token":null,"limit":10,"rawIntent":"Top Uniswap V3 pools on Arbitrum"}
 - "what are the best lending rates?" → {"protocol":"aave-v3","chain":null,"action":"rates","token":null,"limit":10,"rawIntent":"Best lending rates across all chains"}
-- "uniswap volume" → {"protocol":"uniswap-v3","chain":null,"action":"volume","token":null,"limit":10,"rawIntent":"Uniswap V3 volume"}`;
+- "uniswap volume" → {"protocol":"uniswap-v3","chain":null,"action":"volume","token":null,"limit":10,"rawIntent":"Uniswap V3 volume"}
+- "Morpho TVL on Base" → {"protocol":"morpho-blue","chain":"base","action":"tvl","token":null,"limit":10,"rawIntent":"Morpho Blue TVL on Base chain"}
+- "top morpho vaults" → {"protocol":"morpho-blue","chain":null,"action":"vaults","token":null,"limit":10,"rawIntent":"Top Morpho Blue vaults by TVL"}
+- "morpho lending rates" → {"protocol":"morpho-blue","chain":null,"action":"rates","token":null,"limit":10,"rawIntent":"Morpho Blue lending rates"}
+- "best yield on morpho" → {"protocol":"morpho-blue","chain":null,"action":"vaults","token":null,"limit":10,"rawIntent":"Best yield on Morpho Blue vaults"}`;
 
 // ---- NLQ Parser ------------------------------------------
 
@@ -135,6 +150,7 @@ function parseWithRules(query: string): NLQParsed {
   let protocol: Protocol | null = null;
   if (/aave/.test(q)) protocol = "aave-v3";
   else if (/uniswap|uni\b/.test(q)) protocol = "uniswap-v3";
+  else if (/morpho/.test(q)) protocol = "morpho-blue";
 
   // Detect chain
   let chain: Chain | null = null;
@@ -146,6 +162,8 @@ function parseWithRules(query: string): NLQParsed {
   // Detect action
   let action: NLQParsed["action"] = "unknown";
   if (/tvl|total value locked|locked/.test(q)) action = "tvl";
+  else if (/vault/.test(q) && protocol === "morpho-blue") action = "vaults";
+  else if (/best yield|top yield|highest apy|best apy/.test(q) && protocol === "morpho-blue") action = "vaults";
   else if (/rate|apy|apr|yield|interest|lending|borrow|supply/.test(q))
     action = "rates";
   else if (/pool|pair|liquidity/.test(q)) action = "pools";
@@ -248,13 +266,51 @@ export async function executeQuery(
       }
     }
 
+    // ---- Morpho Blue -------------------------------------
+    else if (protocol === "morpho-blue") {
+      const morphoChain =
+        chain && MORPHO_SUPPORTED_CHAINS.includes(chain) ? chain : null;
+
+      if (action === "tvl") {
+        if (morphoChain) {
+          data = await getMorphoTVL(morphoChain, parsed.limit ?? 20);
+        } else {
+          data = await getMorphoTVLAllChains();
+        }
+      } else if (action === "rates") {
+        if (morphoChain) {
+          data = await getMorphoMarketRates(morphoChain, parsed.limit ?? 10);
+        } else {
+          const [base, eth] = await Promise.allSettled([
+            getMorphoMarketRates("base", parsed.limit ?? 10),
+            getMorphoMarketRates("ethereum", parsed.limit ?? 10),
+          ]);
+          data = {
+            base: base.status === "fulfilled" ? base.value : null,
+            ethereum: eth.status === "fulfilled" ? eth.value : null,
+          };
+        }
+      } else if (action === "vaults") {
+        if (morphoChain) {
+          data = await getMorphoTopVaults(morphoChain, parsed.limit ?? 10);
+        } else {
+          data = await getMorphoTopVaultsAllChains();
+        }
+      } else {
+        // Default fallback for morpho: TVL
+        data = morphoChain
+          ? await getMorphoTVL(morphoChain)
+          : await getMorphoTVLAllChains();
+      }
+    }
+
     // ---- Unknown Protocol --------------------------------
     else {
       return {
         success: false,
         query: parsed.rawIntent,
         error:
-          "Could not determine protocol. Try specifying 'Aave' or 'Uniswap' in your query.",
+          "Could not determine protocol. Try specifying 'Aave', 'Uniswap', or 'Morpho' in your query.",
         executionTimeMs: Date.now() - start,
         timestamp: Date.now(),
       };
