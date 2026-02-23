@@ -3,7 +3,7 @@
 // ============================================================
 
 export type Chain = "base" | "arbitrum" | "optimism" | "ethereum";
-export type Protocol = "aave-v3" | "uniswap-v3";
+export type Protocol = "aave-v3" | "uniswap-v3" | "morpho-blue";
 
 // ---- Subgraph Endpoints -----------------------------------
 
@@ -93,6 +93,95 @@ export interface UniswapPoolFormatted {
   price: string;
 }
 
+// ---- Morpho Blue Types ------------------------------------
+
+export interface MorphoMarketState {
+  liquidityAssets: string;
+  supplyAssets: string;
+  borrowAssets: string;
+  utilization: number;
+  supplyApy: number;
+  borrowApy: number;
+  totalValueLockedUsd: number;
+}
+
+export interface MorphoAsset {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  priceUsd?: number;
+}
+
+export interface MorphoMarket {
+  id: string;
+  uniqueKey: string;
+  lltv: string;
+  loanAsset: MorphoAsset;
+  collateralAsset: MorphoAsset | null;
+  state: MorphoMarketState;
+}
+
+export interface MorphoMarketFormatted {
+  id: string;
+  loanToken: string;
+  collateralToken: string;
+  lltv: number; // percentage
+  tvlUSD: number;
+  supplyAPY: number; // percentage
+  borrowAPY: number; // percentage
+  utilization: number; // percentage
+}
+
+export interface MorphoTVL {
+  protocol: "morpho-blue";
+  chain: Chain;
+  totalTVLUSD: number;
+  marketCount: number;
+  topMarkets: MorphoMarketFormatted[];
+  timestamp: number;
+}
+
+export interface MorphoMarketRates {
+  protocol: "morpho-blue";
+  chain: Chain;
+  markets: MorphoMarketFormatted[];
+  timestamp: number;
+}
+
+export interface MorphoVaultState {
+  totalAssets: string;
+  totalAssetsUsd: number;
+  apy: number;
+  netApy: number;
+}
+
+export interface MorphoVault {
+  address: string;
+  name: string;
+  symbol: string;
+  asset: MorphoAsset;
+  state: MorphoVaultState;
+  creationTimestamp: number;
+}
+
+export interface MorphoVaultFormatted {
+  address: string;
+  name: string;
+  symbol: string;
+  asset: string;
+  tvlUSD: number;
+  apy: number; // percentage
+  netApy: number; // percentage
+}
+
+export interface MorphoTopVaults {
+  protocol: "morpho-blue";
+  chain: Chain;
+  vaults: MorphoVaultFormatted[];
+  timestamp: number;
+}
+
 // ---- Query Response Types ---------------------------------
 
 export interface QueryResult<T = unknown> {
@@ -120,7 +209,7 @@ export interface ProtocolInfo {
 export interface NLQParsed {
   protocol: Protocol | null;
   chain: Chain | null;
-  action: "tvl" | "rates" | "pools" | "volume" | "unknown";
+  action: "tvl" | "rates" | "pools" | "volume" | "vaults" | "unknown";
   token?: string;
   limit?: number;
   rawIntent: string;
