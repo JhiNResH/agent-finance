@@ -1,8 +1,8 @@
 # 🏦 Agent Finance - Data Query Service
 
-> **Prototype** | DeFi data queries in plain English, powered by The Graph + Claude AI
+> **Prototype** | DeFi data queries in plain English, powered by The Graph + Morpho Blue API + Claude AI
 
-Query Aave V3 and Uniswap V3 data across multiple chains using natural language. Built as an AI-agent-friendly service with ACP (Agent Communication Protocol) compatibility.
+Query Aave V3, Uniswap V3, and Morpho Blue data across multiple chains using natural language. Built as an AI-agent-friendly service with ACP (Agent Communication Protocol) compatibility.
 
 ---
 
@@ -22,6 +22,7 @@ Query Aave V3 and Uniswap V3 data across multiple chains using natural language.
 |----------|--------|---------------|
 | **Aave V3** | Base, Arbitrum, Optimism | TVL, Supply APY, Borrow APY, Utilization |
 | **Uniswap V3** | Base, Arbitrum | TVL, Top Pools, Volume, Fees |
+| **Morpho Blue** | Base, Ethereum | TVL per market, Supply/Borrow APY, Market Utilization, Top Vaults by TVL |
 
 ---
 
@@ -78,6 +79,18 @@ curl "http://localhost:3000/query?q=What+are+the+best+lending+rates+on+Aave?"
 
 # Uniswap volume
 curl "http://localhost:3000/query?q=Uniswap+volume+on+Base"
+
+# Morpho Blue TVL on Base
+curl "http://localhost:3000/query?q=Morpho+TVL+on+Base"
+
+# Top Morpho vaults
+curl "http://localhost:3000/query?q=Top+Morpho+vaults"
+
+# Morpho lending rates on Ethereum
+curl "http://localhost:3000/query?q=Morpho+lending+rates+on+Ethereum"
+
+# Best yield on Morpho
+curl "http://localhost:3000/query?q=Best+yield+on+Morpho"
 ```
 
 **Response:**
@@ -183,7 +196,7 @@ curl "http://localhost:3000/acp/service-descriptor"
   "description": "DeFi Data Query Service...",
   "category": "defi-data",
   "chains": ["base", "arbitrum", "optimism"],
-  "protocols": ["aave-v3", "uniswap-v3"],
+  "protocols": ["aave-v3", "uniswap-v3", "morpho-blue"],
   "capabilities": [
     {
       "id": "natural-language-query",
@@ -225,7 +238,8 @@ agent-finance/
             │   └── client.ts         # The Graph subgraph client
             ├── protocols/
             │   ├── aave.ts           # Aave V3 queries
-            │   └── uniswap.ts        # Uniswap V3 queries
+            │   ├── uniswap.ts        # Uniswap V3 queries
+            │   └── morpho.ts         # Morpho Blue queries (public API)
             ├── nlq/
             │   └── translator.ts     # NL → GraphQL via Claude
             ├── routes/
@@ -246,7 +260,7 @@ agent-finance/
 | HTTP Framework | Hono 4 |
 | GraphQL Client | graphql-request |
 | AI (NLQ) | Anthropic Claude (claude-haiku-4-5) |
-| Data Source | The Graph (decentralized subgraphs) |
+| Data Source | The Graph (Aave/Uniswap), Morpho Blue API (Morpho) |
 
 ---
 
@@ -268,11 +282,23 @@ getAaveTVL("base")
 GraphQL → The Graph → Aave V3 Base subgraph
     ↓
 { totalTVLUSD: 142500000, topReserves: [...] }
+
+"Top Morpho vaults"
+    ↓
+[Rule parser: protocol=morpho-blue, chain=null, action=vaults]
+    ↓
+getMorphoTopVaultsAllChains()
+    ↓
+GraphQL → https://blue-api.morpho.org/graphql
+    ↓
+{ vaults: [{ name: "Gauntlet USDC Prime", tvlUSD: 327600000, apy: 3.91 }, ...] }
 ```
 
 ---
 
-## 🔗 Data Sources (The Graph Subgraphs)
+## 🔗 Data Sources
+
+### The Graph Subgraphs (Aave V3 + Uniswap V3)
 
 | Protocol | Chain | Subgraph |
 |----------|-------|---------|
@@ -284,11 +310,21 @@ GraphQL → The Graph → Aave V3 Base subgraph
 
 > **Note:** Public endpoints have rate limits. For production, get a free API key at [thegraph.com](https://thegraph.com/studio/apikeys/).
 
+### Morpho Blue GraphQL API
+
+| Protocol | Chain | Endpoint |
+|----------|-------|---------|
+| Morpho Blue | Base (chainId: 8453) | `https://blue-api.morpho.org/graphql` |
+| Morpho Blue | Ethereum (chainId: 1) | `https://blue-api.morpho.org/graphql` |
+
+> **Note:** Morpho Blue API is **free and public** — no API key required. Supports markets, vaults, and positions queries. The service gracefully falls back to cached demo data if the API is unreachable.
+
 ---
 
 ## 🛣️ Roadmap
 
-- [ ] Add Ethereum mainnet support
+- [x] Add Morpho Blue protocol (Base + Ethereum mainnet) ✅
+- [ ] Add Ethereum mainnet support for Aave / Uniswap
 - [ ] Add Compound V3 protocol
 - [ ] Historical TVL time series
 - [ ] WebSocket streaming for live updates

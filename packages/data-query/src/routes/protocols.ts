@@ -47,6 +47,26 @@ const PROTOCOLS: ProtocolInfo[] = [
       ethereum: undefined,
     },
   },
+  {
+    id: "morpho-blue",
+    name: "Morpho Blue",
+    description:
+      "Permissionless isolated lending markets and curated vaults. Efficient collateralized borrowing with customizable risk parameters.",
+    chains: ["base", "ethereum"],
+    capabilities: [
+      "Total Value Locked (TVL) per market",
+      "Supply / borrow APY rates per market",
+      "Market utilization",
+      "Top vaults by TVL",
+      "Curated vault yield (net APY)",
+    ],
+    subgraphUrls: {
+      base: "Morpho Blue API - https://blue-api.morpho.org/graphql",
+      ethereum: "Morpho Blue API - https://blue-api.morpho.org/graphql",
+      arbitrum: undefined,
+      optimism: undefined,
+    },
+  },
 ];
 
 protocolsRouter.get("/", (c) => {
@@ -66,6 +86,10 @@ protocolsRouter.get("/", (c) => {
       "GET /query?q=Aave lending rates on Optimism",
       "GET /query?q=What is the best yield on Aave?",
       "GET /query?q=Uniswap volume on Base",
+      "GET /query?q=Morpho TVL on Base",
+      "GET /query?q=Top Morpho vaults",
+      "GET /query?q=Morpho lending rates on Ethereum",
+      "GET /query?q=Best yield on Morpho",
     ],
   };
 
