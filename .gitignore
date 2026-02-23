@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+*.env.local
+*.env.production
+.DS_Store
+*.log
+npm-debug.log*
+.turbo/
+coverage/
+.nyc_output/
+
+# Build output
+dist/
+*.js.map
+*.d.ts.map

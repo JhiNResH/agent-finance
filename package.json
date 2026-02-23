@@ -1,0 +1,22 @@
+{
+  "name": "agent-finance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agent Finance - DeFi Data Query Service",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspace=packages/data-query",
+    "start": "npm run start --workspace=packages/data-query",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
